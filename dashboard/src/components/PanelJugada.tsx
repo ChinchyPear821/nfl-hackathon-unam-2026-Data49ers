@@ -2,7 +2,21 @@ import { useMemo } from 'react'
 import type { Frame, Opcion, Play, QBRow } from '../api'
 import { RESULTADO } from '../api'
 import MiniBolsillo from './MiniBolsillo'
-import { PALETA, ROL_LABEL, colorBolsillo, colorProb, colorSep } from './paleta'
+import { COLOR_VEREDICTO, PALETA, ROL_LABEL, colorBolsillo, colorProb, colorSep } from './paleta'
+
+// Misma frase que se manda a Nova (explicacion_presion en backend/main.py)
+const n1 = (v: number | null) => (v == null ? 'sin dato' : v.toFixed(1))
+export function explicacionPresion(p: Play): string | null {
+  const v = p.veredicto_presion
+  if (!v || v === 'Sin dato') return null
+  const tardo = `el QB tardó ${n1(p.seg_hasta_lanzar_o_captura)} s`
+  if (p.seg_rusher_a_2_5yd == null) {   // ningún rusher llegó a 2.5 yd
+    const frase = `Ningún rusher llegó a 2.5 yd (el más cercano, ${p.rusher_mas_cercano ?? 'sin dato'}, quedó a ${n1(p.dist_rusher_final)} yd); ${tardo}.`
+    return v === 'Bolsillo limpio' ? `Sin presión. ${frase}` : frase
+  }
+  if (v === 'Bolsillo limpio') return `Sin presión; ${tardo}.`
+  return `Presión de ${p.rusher_mas_cercano} a los ${n1(p.seg_rusher_a_2_5yd)} s; ${tardo}.`
+}
 
 export type Pestana = 'receptores' | 'qb' | 'jugadores'
 
@@ -165,8 +179,26 @@ export default function PanelJugada(props: Props) {
 
   // ── QB y presión ──────────────────────────────────────────────────────────
   const dr = qbAhora?.dist_rusher ?? null
+  const veredicto = play.veredicto_presion && play.veredicto_presion !== 'Sin dato' ? play.veredicto_presion : null
+  const explicacion = explicacionPresion(play)
+  const culpa = qbFila && qbFila.pct_presiones_reloj_qb != null && qbFila.pct_presiones_culpa_linea != null && qbFila.pct_presiones_esquema != null
+    ? [
+        { k: 'Reloj del QB', v: qbFila.pct_presiones_reloj_qb, c: COLOR_VEREDICTO['El QB retuvo el balón'] },
+        { k: 'Línea', v: qbFila.pct_presiones_culpa_linea, c: COLOR_VEREDICTO['La línea no aguantó'] },
+        { k: 'Esquema', v: qbFila.pct_presiones_esquema, c: COLOR_VEREDICTO['Rusher libre (esquema)'] },
+      ]
+    : null
+
   const qb = (
     <div className="flex flex-col gap-3">
+      {veredicto && (
+        <div className="rounded-xl bg-fondo border-l-8 px-3 py-2.5" style={{ borderColor: COLOR_VEREDICTO[veredicto] }}>
+          <p className="text-[11px] font-bold uppercase tracking-wide text-secundario">Veredicto de la jugada</p>
+          <p className={`${titulo} text-2xl leading-tight`} style={{ color: COLOR_VEREDICTO[veredicto] }}>{veredicto}</p>
+          {explicacion && <p className="text-xs font-semibold text-white mt-1 leading-snug">{explicacion}</p>}
+        </div>
+      )}
+
       <div>
         <p className="text-[11px] font-bold uppercase tracking-wide text-secundario mb-1">Bolsillo del QB ahora</p>
         {dr != null ? (
@@ -206,6 +238,28 @@ export default function PanelJugada(props: Props) {
             <Dato k="Pases bajo presión" v={pct(qbFila.pct_bajo_presion)} />
             <Dato k="Capturas" v={qbFila.capturas} />
             <Dato k="Intercepciones" v={qbFila.intercepciones} />
+
+            <div className="mt-1">
+              <p className="text-xs font-black text-white mb-1.5">¿De quién es la culpa cuando presionan a este QB?</p>
+              {culpa ? (
+                <>
+                  <div className="flex h-4 rounded-full overflow-hidden bg-borde" role="img"
+                    aria-label={culpa.map(s => `${s.k} ${pct(s.v)}`).join(', ')}>
+                    {culpa.map(s => <div key={s.k} style={{ width: `${s.v * 100}%`, background: s.c }} />)}
+                  </div>
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5 text-xs font-bold">
+                    {culpa.map(s => (
+                      <span key={s.k} className="flex items-center gap-1 text-secundario">
+                        <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: s.c }} />
+                        {s.k} <b className="tabular-nums" style={{ color: s.c }}>{pct(s.v)}</b>
+                      </span>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <p className="text-xs text-secundario">Sin datos suficientes.</p>
+              )}
+            </div>
           </div>
         ) : (
           <p className="text-xs text-secundario mt-1">Sin datos suficientes (menos de 100 pases en el periodo).</p>

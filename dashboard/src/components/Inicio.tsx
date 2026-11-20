@@ -1,9 +1,24 @@
 import { useEffect, useState } from 'react'
-import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { fetchFormaciones, fetchResumen, fetchSeparacion } from '../api'
-import type { FormacionRow, Resumen, SepRow } from '../api'
+import {
+  Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
+} from 'recharts'
+import { fetchCurvaBolsillo, fetchFormaciones, fetchResumen, fetchSeparacion } from '../api'
+import type { CurvaRow, FormacionRow, Resumen, SepRow } from '../api'
 import MetricCard from './MetricCard'
-import { PALETA } from './paleta'
+import { COLOR_VEREDICTO, PALETA, VEREDICTOS } from './paleta'
+
+const MIN_JUGADAS_CURVA = 30   // por debajo, la línea se corta (tramo poco confiable)
+
+// una fila por segundo con la distancia mediana de cada veredicto (null = línea cortada)
+function pivotCurva(filas: CurvaRow[]) {
+  const porSeg = new Map<number, Record<string, number | null>>()
+  filas.forEach(f => {
+    const s = Math.round(f.seg * 10) / 10
+    if (!porSeg.has(s)) porSeg.set(s, { seg: s })
+    porSeg.get(s)![f.veredicto_presion] = f.jugadas >= MIN_JUGADAS_CURVA ? f.dist_mediana : null
+  })
+  return [...porSeg.values()].sort((a, b) => (a.seg as number) - (b.seg as number))
+}
 
 const pct = (v: number) => `${Math.round(v * 100)}%`
 const colorBarra = (p: number) => (p < 0.5 ? PALETA.fallo : p < 0.7 ? PALETA.primerdown : PALETA.completo)
@@ -20,6 +35,7 @@ export default function Inicio({ onExplorar }: { onExplorar: () => void }) {
   const [resumen, setResumen] = useState<Resumen | null>(null)
   const [sep, setSep] = useState<SepRow[]>([])
   const [forma, setForma] = useState<FormacionRow[]>([])
+  const [curva, setCurva] = useState<CurvaRow[]>([])
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -27,7 +43,10 @@ export default function Inicio({ onExplorar }: { onExplorar: () => void }) {
       .then(([r, s]) => { setResumen(r); setSep(s) })
       .catch(e => setError(String(e)))
     fetchFormaciones().then(setForma).catch(() => setForma([]))
+    fetchCurvaBolsillo().then(setCurva).catch(() => setCurva([]))
   }, [])
+
+  const datosCurva = pivotCurva(curva)
 
   const datosForma = forma.map(f => ({ ...f, pct: Math.round(f.pct_completo * 1000) / 10 }))
 
@@ -131,6 +150,68 @@ export default function Inicio({ onExplorar }: { onExplorar: () => void }) {
             </ResponsiveContainer>
           </div>
         </section>
+      )}
+
+      {(resumen || datosCurva.length > 0) && (
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-4 w-full max-w-[1280px] items-stretch">
+          {resumen && (
+            <MetricCard
+              size="md"
+              value={`${Math.round(resumen.presion_pct_qb_retuvo * 10)} de cada 10`}
+              label="presiones ocurren cuando el QB se queda con el balón más de 3 s"
+              sub={`y en esas jugadas, 1 de cada ${Math.round(1 / resumen.presion_pct_captura_qb_retuvo)} termina en captura`}
+              note={`${resumen.presion_jugadas_pase.toLocaleString('es-MX')} jugadas de pase, semanas 1 a 8`}
+              accent="primerdown"
+            />
+          )}
+          {datosCurva.length > 0 && (
+            <section className="bg-superficie border border-borde rounded-2xl p-4 md:p-6">
+              <h2 className={`${titulo} text-2xl md:text-3xl mb-1`}>Así se cierra el bolsillo</h2>
+              <p className="text-sm text-secundario font-semibold mb-3">
+                Distancia mediana del rusher más cercano al QB, segundo a segundo desde el snap, según cómo terminó la presión.
+              </p>
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={datosCurva} margin={{ top: 8, right: 16, left: 0, bottom: 24 }}>
+                    <CartesianGrid stroke={PALETA.borde} />
+                    <XAxis
+                      type="number"
+                      dataKey="seg"
+                      domain={[0, 4]}
+                      ticks={[0, 1, 2, 3, 4]}
+                      stroke={PALETA.secundario}
+                      tick={{ fill: PALETA.secundario, fontWeight: 700 }}
+                      tickFormatter={v => `${v} s`}
+                      label={{ value: 'segundos desde el snap', position: 'insideBottom', offset: -12, fill: PALETA.secundario }}
+                    />
+                    <YAxis
+                      stroke={PALETA.secundario}
+                      tick={{ fill: PALETA.secundario, fontWeight: 700 }}
+                      domain={[0, 'auto']}
+                      label={{ value: 'yardas del rusher al QB', angle: -90, position: 'insideLeft', fill: PALETA.secundario, style: { textAnchor: 'middle' } }}
+                    />
+                    <ReferenceLine x={3} stroke={PALETA.secundario} strokeDasharray="4 4"
+                      label={{ value: '3 s', position: 'top', fill: PALETA.secundario, fontWeight: 700 }} />
+                    <Tooltip
+                      contentStyle={tooltipEstilo}
+                      labelStyle={{ color: PALETA.texto }}
+                      labelFormatter={l => `${Number(l).toFixed(1)} s desde el snap`}
+                      formatter={(v, n) => [`${Number(v).toFixed(1)} yd`, String(n)]}
+                    />
+                    <Legend wrapperStyle={{ color: PALETA.texto, fontWeight: 700, fontSize: 12, paddingTop: 8 }} verticalAlign="top" />
+                    {VEREDICTOS.map(v => (
+                      <Line key={v} type="monotone" dataKey={v} name={v} stroke={COLOR_VEREDICTO[v]}
+                        strokeWidth={3} dot={false} connectNulls={false} isAnimationActive={false} />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="text-[11px] text-secundario font-semibold mt-1">
+                Cada línea se corta cuando quedan menos de {MIN_JUGADAS_CURVA} jugadas en ese segundo.
+              </p>
+            </section>
+          )}
+        </div>
       )}
 
       <button

@@ -28,6 +28,9 @@ opciones_df = pd.read_csv(DATA / "opciones.csv", dtype={"entidad_id": str})
 qbs_df = pd.read_csv(DATA / "qbs.csv")
 formaciones_df = pd.read_csv(DATA / "formaciones.csv")
 equipos_df = pd.read_csv(DATA / "equipos.csv")   # solo cosmético: colores del marcador
+presion_df = pd.read_csv(DATA / "presion.csv")   # veredicto de presión por jugada
+curva_bolsillo_df = pd.read_csv(DATA / "curva_bolsillo.csv")
+resumen_presion_df = pd.read_csv(DATA / "resumen_presion.csv")   # 8,524 jugadas de pase (con capturas)
 
 
 def limpio(df: pd.DataFrame) -> list[dict]:
@@ -41,6 +44,7 @@ def limpio(df: pd.DataFrame) -> list[dict]:
 _animables = (
     seleccion_df[["jugada_id", "historia"]]
     .merge(jugadas_df, on="jugada_id", how="inner")
+    .merge(presion_df, on="jugada_id", how="left")
 )
 JUGADAS = limpio(_animables)
 IDS_ANIMABLES = set(_animables["jugada_id"])
@@ -55,6 +59,8 @@ SEPARACION = limpio(separacion_df)
 QBS = limpio(qbs_df)
 FORMACIONES = limpio(formaciones_df)
 EQUIPOS = limpio(equipos_df)
+CURVA_BOLSILLO = limpio(curva_bolsillo_df.sort_values(["veredicto_presion", "seg"]))
+PRESION = {r["jugada_id"]: r for r in limpio(presion_df)}
 
 # opciones por jugada, de mayor a menor probabilidad
 OPCIONES: dict[str, list[dict]] = {}
@@ -65,12 +71,17 @@ for jid, g in opciones_df.groupby("jugada_id"):
 
 def _resumen() -> dict:
     sep = separacion_df.set_index("sep_yd")["pct_completo"]
+    rp = resumen_presion_df.set_index("veredicto_presion")
     return {
         "total_pases": int(len(jugadas_df)),
         "pct_completo_menos_1yd": float(sep.loc[0]),
         "pct_completo_8_mas": float(sep.loc[8]),
         "pct_hubo_mejor_opcion": float(jugadas_df["habia_mejor_opcion"].mean()),
         "jugadas_animables": len(JUGADAS),
+        # presión, sobre las 8,524 jugadas de pase de resumen_presion.csv
+        "presion_jugadas_pase": int(resumen_presion_df["jugadas"].sum()),
+        "presion_pct_qb_retuvo": float(rp.loc["El QB retuvo el balón", "pct_de_presiones"]),
+        "presion_pct_captura_qb_retuvo": float(rp.loc["El QB retuvo el balón", "pct_captura"]),
     }
 
 
@@ -127,6 +138,11 @@ def get_equipos():
     return EQUIPOS
 
 
+@app.get("/api/curva-bolsillo")
+def get_curva_bolsillo():
+    return CURVA_BOLSILLO
+
+
 # ── IA opcional: comentarista con Amazon Nova (Bedrock) ─────────────────────
 _NARRACIONES: dict[str, dict] = {}
 
@@ -136,6 +152,21 @@ def _num(v, fmt: str = "{:.1f}", sufijo: str = "") -> str:
     if v is None or (isinstance(v, float) and np.isnan(v)):
         return "sin dato"
     return fmt.format(v) + sufijo
+
+
+def explicacion_presion(p: dict | None) -> str | None:
+    """Misma frase que muestra el panel 'QB y presión' (PanelJugada.tsx)."""
+    if not p or not p.get("veredicto_presion") or p["veredicto_presion"] == "Sin dato":
+        return None
+    tardo = f"el QB tardó {_num(p.get('seg_hasta_lanzar_o_captura'))} s"
+    limpio_ = p["veredicto_presion"] == "Bolsillo limpio"
+    if p.get("seg_rusher_a_2_5yd") is None:          # ningún rusher llegó a 2.5 yd
+        frase = (f"Ningún rusher llegó a 2.5 yd (el más cercano, {p.get('rusher_mas_cercano') or 'sin dato'}, "
+                 f"quedó a {_num(p.get('dist_rusher_final'))} yd); {tardo}.")
+        return ("Sin presión. " + frase) if limpio_ else frase
+    if limpio_:
+        return f"Sin presión; {tardo}."
+    return f"Presión de {p.get('rusher_mas_cercano')} a los {_num(p['seg_rusher_a_2_5yd'])} s; {tardo}."
 
 
 def _datos_narracion(jugada_id: str, j: pd.Series) -> str:
@@ -166,6 +197,8 @@ def _datos_narracion(jugada_id: str, j: pd.Series) -> str:
         f"de los pases con esa separación se completa el {_num(j['prob_completo'] * 100, '{:.0f}', '%')}.\n"
         f"- Tiempo para lanzar: {_num(j['seg_para_lanzar'], sufijo=' s')}. "
         f"Rusher más cercano al QB al lanzar: {_num(j['dist_rusher'], sufijo=' yd')}.\n"
+        f"- Veredicto de presión: \"{(PRESION.get(jugada_id) or {}).get('veredicto_presion') or 'sin dato'}\"\n"
+        f"- Detalle de la presión: {explicacion_presion(PRESION.get(jugada_id)) or 'sin dato'}\n"
         f"- Resultado: {res}, {int(j['yardas'])} yardas. Descripción oficial: {j['descripcion']}\n"
         "QUÉ PUDO HACER\n"
         f"- {alternativa}"
@@ -212,7 +245,9 @@ def get_narracion(jugada_id: str):
         '- "contexto": 1 o 2 oraciones con los equipos, quién es local, el marcador, el cuarto, el reloj, '
         "el down y las yardas por avanzar.\n"
         '- "jugada": 2 oraciones: a quién lanzó el QB, con qué separación y qué porcentaje de pases así se completan, '
-        "cuánto tardó en lanzar, cuánta presión tenía y el resultado.\n"
+        "cuánto tardó en lanzar, cuánta presión tenía y el resultado. "
+        "Incluye el veredicto de presión con sus palabras exactas entre comillas "
+        '(por ejemplo: el veredicto fue "El QB retuvo el balón").\n'
         '- "alternativa": 1 o 2 oraciones con la mejor opción (su separación, su porcentaje y si pasaba el primer down). '
         "Si el QB ya eligió la mejor opción, dilo así.\n"
         'Formato: {"contexto": "...", "jugada": "...", "alternativa": "..."}\n\n'

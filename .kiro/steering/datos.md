@@ -28,3 +28,14 @@ Generados con DuckDB fuera del proyecto. Coordenadas en yardas, normalizadas: el
 | `equipos.csv` | equipo (32) | `equipo` (abreviatura), `nombre`, `ciudad`, `color_primario`, `color_secundario`. Solo cosmético (colores del marcador); no es dato de análisis. |
 
 - El dataset NO trae tiempos fuera ni reloj de jugada (los ":17" de la TV). No los inventes.
+
+## Presión: ¿culpa de la línea o del reloj del QB? (análisis de un integrante del equipo)
+| Archivo | Una fila por | Columnas |
+|---|---|---|
+| `presion.csv` | jugada de `jugadas.csv` (se une por `jugada_id`) | `veredicto_presion` ("Bolsillo limpio", "La línea no aguantó", "Rusher libre (esquema)", "El QB retuvo el balón"), `hubo_presion`, `culpa_liniero_pff`, `seg_hasta_lanzar_o_captura`, `seg_rusher_a_2_5yd`, `rusher_mas_cercano`, `dist_rusher_final`, `rusher_sin_bloqueo` |
+| `curva_bolsillo.csv` | segundo (0 a 4, cada 0.1) por veredicto | `seg`, `veredicto_presion`, `jugadas`, `dist_mediana` (yd del rusher más cercano al QB) |
+
+`qbs.csv` ahora también trae `pct_presiones_culpa_linea`, `pct_presiones_reloj_qb`, `pct_presiones_esquema` (vacío en 3 QB).
+
+Definición (PFF + tracking, todas las jugadas de pase): hubo presión si PFF marca golpe, prisa o captura. "La línea no aguantó" = presión, PFF culpa a un liniero y el QB lanzó en 3.0 s o menos. "Rusher libre (esquema)" = presión en 3.0 s o menos sin culpa a un liniero. "El QB retuvo el balón" = presión en jugadas de más de 3.0 s. Cifras en las 8,524 jugadas: de las presiones, 62% son del reloj del QB, 30% de la línea y 8% de esquema; cuando el QB retuvo el balón, 27% de completos y 25% de capturas.
+| `resumen_presion.csv` | veredicto (4), sobre las 8,524 jugadas de pase con capturas y scrambles | `veredicto_presion`, `jugadas`, `pct_de_todas`, `pct_de_presiones` (vacío en "Bolsillo limpio"), `pct_completo`, `pct_captura`. Fuente de las cifras globales de presión. |

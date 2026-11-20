@@ -4,6 +4,9 @@ export interface Resumen {
   pct_completo_8_mas: number
   pct_hubo_mejor_opcion: number
   jugadas_animables: number
+  presion_jugadas_pase: number            // 8,524 jugadas de pase (resumen_presion.csv)
+  presion_pct_qb_retuvo: number           // de las presiones, % "El QB retuvo el balón"
+  presion_pct_captura_qb_retuvo: number   // en esas jugadas, % que terminan en captura
 }
 
 export interface SepRow {
@@ -49,6 +52,15 @@ export interface Play {
   dist_rusher: number | null
   los_x: number | null
   primer_down_x: number | null
+  // presion.csv (left join por jugada_id)
+  veredicto_presion: Veredicto | 'Sin dato' | null
+  hubo_presion: number | null
+  culpa_liniero_pff: number | null
+  seg_hasta_lanzar_o_captura: number | null
+  seg_rusher_a_2_5yd: number | null       // vacío: ningún rusher llegó a 2.5 yd
+  rusher_mas_cercano: string | null
+  dist_rusher_final: number | null
+  rusher_sin_bloqueo: number | null
 }
 
 export interface Frame {
@@ -95,6 +107,10 @@ export interface QBRow {
   pct_completo_sin_presion: number
   sep_prom_objetivo: number
   pct_habia_mejor_opcion: number
+  // de las presiones a este QB (vacío en 3 QB)
+  pct_presiones_culpa_linea: number | null
+  pct_presiones_reloj_qb: number | null
+  pct_presiones_esquema: number | null
 }
 
 export interface FormacionRow {
@@ -132,6 +148,15 @@ export interface Equipo {
   color_secundario: string
 }
 export const fetchEquipos = () => get<Equipo[]>('api/equipos')
+
+export type Veredicto = 'Bolsillo limpio' | 'La línea no aguantó' | 'Rusher libre (esquema)' | 'El QB retuvo el balón'
+export interface CurvaRow {
+  seg: number
+  veredicto_presion: Veredicto
+  jugadas: number
+  dist_mediana: number    // yd del rusher más cercano al QB
+}
+export const fetchCurvaBolsillo = () => get<CurvaRow[]>('api/curva-bolsillo')
 
 export const RESULTADO: Record<Play['resultado'], { texto: string; color: string }> = {
   C: { texto: 'Completo', color: 'text-completo' },

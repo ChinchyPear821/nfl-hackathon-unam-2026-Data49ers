@@ -18,6 +18,16 @@ export const colorBolsillo = (d: number) => (d >= 4 ? PALETA.completo : d >= 2 ?
 // probabilidad de completar (mismos cortes que la gráfica de Inicio)
 export const colorProb = (p: number) => (p < 0.5 ? PALETA.fallo : p < 0.7 ? PALETA.primerdown : PALETA.completo)
 
+// veredicto de presión. El morado es el único color fuera de la paleta (pedido para "esquema").
+export const MORADO = '#A78BFA'
+export const VEREDICTOS = ['El QB retuvo el balón', 'La línea no aguantó', 'Rusher libre (esquema)', 'Bolsillo limpio'] as const
+export const COLOR_VEREDICTO: Record<string, string> = {
+  'El QB retuvo el balón': PALETA.primerdown,
+  'La línea no aguantó': PALETA.fallo,
+  'Rusher libre (esquema)': MORADO,
+  'Bolsillo limpio': PALETA.completo,
+}
+
 export const ROL_LABEL: Record<string, string> = {
   'Pass': 'Quarterback',
   'Pass Route': 'Receptor',
