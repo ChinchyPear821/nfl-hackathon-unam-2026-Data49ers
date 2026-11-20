@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import {
   Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
-import { fetchCurvaBolsillo, fetchFormaciones, fetchResumen, fetchSeparacion } from '../api'
-import type { CurvaRow, FormacionRow, Resumen, SepRow } from '../api'
+import { fetchCurvaBolsillo, fetchFormaciones, fetchResumen, fetchRiesgoModelo, fetchSeparacion } from '../api'
+import type { CurvaRow, FormacionRow, Resumen, RiesgoModeloRow, SepRow } from '../api'
 import MetricCard from './MetricCard'
 import { COLOR_VEREDICTO, PALETA, VEREDICTOS } from './paleta'
 
@@ -36,6 +36,7 @@ export default function Inicio({ onExplorar }: { onExplorar: () => void }) {
   const [sep, setSep] = useState<SepRow[]>([])
   const [forma, setForma] = useState<FormacionRow[]>([])
   const [curva, setCurva] = useState<CurvaRow[]>([])
+  const [modelo, setModelo] = useState<RiesgoModeloRow[]>([])
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -44,7 +45,12 @@ export default function Inicio({ onExplorar }: { onExplorar: () => void }) {
       .catch(e => setError(String(e)))
     fetchFormaciones().then(setForma).catch(() => setForma([]))
     fetchCurvaBolsillo().then(setCurva).catch(() => setCurva([]))
+    fetchRiesgoModelo().then(setModelo).catch(() => setModelo([]))
   }, [])
+
+  // AUC del modelo de riesgo (riesgo_modelo.csv): primer segundo y después de 3 s
+  const aucTramo = (t: string) => modelo.find(m => m.tramo === t)?.auc ?? null
+  const aucInicio = aucTramo('0-1 s'), aucFinal = aucTramo('3-5 s')
 
   const datosCurva = pivotCurva(curva)
 
@@ -209,6 +215,12 @@ export default function Inicio({ onExplorar }: { onExplorar: () => void }) {
               <p className="text-[11px] text-secundario font-semibold mt-1">
                 Cada línea se corta cuando quedan menos de {MIN_JUGADAS_CURVA} jugadas en ese segundo.
               </p>
+              {aucInicio != null && aucFinal != null && (
+                <p className="text-xs text-white/80 font-semibold mt-1">
+                  Modelo de riesgo en vivo: acierta más conforme avanza la jugada (AUC {aucInicio.toFixed(2)} en el primer
+                  segundo, {aucFinal.toFixed(2)} después de 3 s; probado en semanas que no vio)
+                </p>
+              )}
             </section>
           )}
         </div>

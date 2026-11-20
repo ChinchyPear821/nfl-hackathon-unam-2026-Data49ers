@@ -39,3 +39,11 @@ Generados con DuckDB fuera del proyecto. Coordenadas en yardas, normalizadas: el
 
 Definición (PFF + tracking, todas las jugadas de pase): hubo presión si PFF marca golpe, prisa o captura. "La línea no aguantó" = presión, PFF culpa a un liniero y el QB lanzó en 3.0 s o menos. "Rusher libre (esquema)" = presión en 3.0 s o menos sin culpa a un liniero. "El QB retuvo el balón" = presión en jugadas de más de 3.0 s. Cifras en las 8,524 jugadas: de las presiones, 62% son del reloj del QB, 30% de la línea y 8% de esquema; cuando el QB retuvo el balón, 27% de completos y 25% de capturas.
 | `resumen_presion.csv` | veredicto (4), sobre las 8,524 jugadas de pase con capturas y scrambles | `veredicto_presion`, `jugadas`, `pct_de_todas`, `pct_de_presiones` (vacío en "Bolsillo limpio"), `pct_completo`, `pct_captura`. Fuente de las cifras globales de presión. |
+
+## Riesgo de presión en vivo (modelo)
+| Archivo | Una fila por | Columnas |
+|---|---|---|
+| `riesgo.csv` | cuadro de cada jugada animable, del snap al lanzamiento (90 jugadas) | `jugada_id`, `frame` (mismo `frame` que `frames.csv`), `riesgo` (0–1: probabilidad de que PFF marque presión en la jugada, con lo que se sabe en ese cuadro) |
+| `riesgo_modelo.csv` | tramo de tiempo | `tramo`, `cuadros_prueba`, `auc`. Evaluación honesta: entrenado con semanas 1–6, probado en 7–8. AUC global 0.70; 0.61 en el primer segundo y 0.84 después de 3 s. |
+
+Modelo: regresión logística sobre variables causales por cuadro (segundos desde el snap, distancia del rusher más cercano al QB y su cambio en 0.5 s, rushers a 3 y 5 yd, rushers y bloqueadores, velocidad del QB, down, yardas, defensores en la caja, shotgun). Reproduce el enfoque del análisis de presión del equipo sin dependencias nuevas. Antes del snap y después del lanzamiento no hay valor: muestra el último disponible.

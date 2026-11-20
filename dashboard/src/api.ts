@@ -158,6 +158,12 @@ export interface CurvaRow {
 }
 export const fetchCurvaBolsillo = () => get<CurvaRow[]>('api/curva-bolsillo')
 
+// riesgo de presión en vivo (modelo): un valor por cuadro, del snap al lanzamiento
+export interface RiesgoCuadro { frame: number; riesgo: number }
+export interface RiesgoModeloRow { tramo: string; cuadros_prueba: number; auc: number }
+export const fetchRiesgo = (id: string) => get<RiesgoCuadro[]>(`api/jugadas/${encodeURIComponent(id)}/riesgo`)
+export const fetchRiesgoModelo = () => get<RiesgoModeloRow[]>('api/riesgo-modelo')
+
 export const RESULTADO: Record<Play['resultado'], { texto: string; color: string }> = {
   C: { texto: 'Completo', color: 'text-completo' },
   I: { texto: 'Incompleto', color: 'text-fallo' },

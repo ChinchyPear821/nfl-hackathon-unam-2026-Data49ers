@@ -1,10 +1,10 @@
 # Entrega: hackathon-unam-cucupumas
 
-- Generado: 2026-11-20 12:50 (windows x64)
+- Generado: 2026-11-20 13:20 (windows x64)
 - Stack verificado: Python 3.12.12, Node 22.23.1, uv 0.11.19
 - Dashboard compilado: sí (dashboard/dist)
 - Backend: se importa sin errores
-- Archivos incluidos: 53 (13.2 MB sin comprimir)
+- Archivos incluidos: 57 (13.3 MB sin comprimir)
 - Desviaciones del stack: ninguna
 
 ## Cómo ejecutarlo

@@ -417,3 +417,118 @@ computing gzip size...
 LISTO. Sube este archivo:
   C:\hackathon\entrega-hackathon-unam-cucupumas-20261120-1250.zip
 12:50:59 FIN con código de salida 0
+
+===== setup 2026-11-20 13:20:10 =====
+13:20:10 Sistema detectado: windows x64  |  Python del arranque: 3.12.12
+13:20:10 MODO: check  |  versión del script: 2026-11-16  |  argumentos: --check
+13:20:10 SISTEMA: Windows-11-10.0.26300-SP0  |  detectado: windows x64  |  versión: 10.0.26300
+13:20:10 WINDOWS: build 26300  |  administrador: False
+13:20:10 PYTHON: 3.12.12 (C:\hackathon\hackathon-unam-cucupumas\.venv\Scripts\python.exe)
+13:20:10 USUARIO: Saul Casas Lorenzo  |  carpeta actual: C:\hackathon\hackathon-unam-cucupumas
+13:20:10 PROYECTO: C:\hackathon\hackathon-unam-cucupumas  |  largo de ruta: 37  |  espacios: False  |  no ASCII: False
+13:20:10 DISCO LIBRE: 10.4 GB
+13:20:10 PROXY: ninguno
+13:20:10 Proyecto: C:\hackathon\hackathon-unam-cucupumas
+13:20:10 
+Validando (no se descarga ni instala nada)...
+13:20:11 $ C:\hackathon\hackathon-unam-cucupumas\.hackathon\.tools\uv\uv.exe pip check --python C:\hackathon\hackathon-unam-cucupumas\.venv\Scripts\python.exe
+13:20:11 Checked 57 packages in 4ms
+All installed packages are compatible
+13:20:11 $ C:\hackathon\hackathon-unam-cucupumas\.venv\Scripts\python.exe -c import pandas, numpy, fastapi, uvicorn, pydantic, strands, boto3, httpx
+13:20:13 
+13:20:13   Pieza              Esperado                            Encontrado      Estado
+13:20:13   -----------------  ----------------------------------  --------------  ------
+13:20:13   uv                 0.11.19                             0.11.19         OK    
+13:20:13   Python (.venv)     3.12.12                             3.12.12         OK    
+13:20:13   Node               v22.23.1                            v22.23.1        OK    
+13:20:13   npm                10.x                                10.9.8          OK    
+13:20:13   Paquetes Python    9 fijos                             9 coinciden     OK    
+13:20:13   Paquetes npm       12 fijos                            12 coinciden    OK    
+13:20:13   pip check          sin conflictos                      sin conflictos  OK    
+13:20:13   Importar paquetes  pandas, fastapi, pydantic, strands  importan        OK    
+13:20:13 
+Revisando desviaciones del stack...
+13:20:13 $ C:\hackathon\hackathon-unam-cucupumas\.venv\Scripts\python.exe -c import backend.main as m;assert hasattr(m,'app'), 'APP';assert any(getattr(r,'path','')=='/health' for r in m.app.routes), 'HEALTH'
+13:20:15 
+13:20:15     El proyecto sigue el stack del evento
+13:20:15 
+RESULTADO: TODO OK, puedes entregar.
+13:20:15 FIN con código de salida 0
+
+===== setup 2026-11-20 13:20:20 =====
+13:20:20 Sistema detectado: windows x64  |  Python del arranque: 3.12.12
+13:20:20 MODO: entregar  |  versión del script: 2026-11-16  |  argumentos: --entregar
+13:20:20 SISTEMA: Windows-11-10.0.26300-SP0  |  detectado: windows x64  |  versión: 10.0.26300
+13:20:20 WINDOWS: build 26300  |  administrador: False
+13:20:20 PYTHON: 3.12.12 (C:\hackathon\hackathon-unam-cucupumas\.venv\Scripts\python.exe)
+13:20:20 USUARIO: Saul Casas Lorenzo  |  carpeta actual: C:\hackathon\hackathon-unam-cucupumas
+13:20:20 PROYECTO: C:\hackathon\hackathon-unam-cucupumas  |  largo de ruta: 37  |  espacios: False  |  no ASCII: False
+13:20:20 DISCO LIBRE: 10.4 GB
+13:20:20 PROXY: ninguno
+13:20:20 Proyecto: C:\hackathon\hackathon-unam-cucupumas
+13:20:20 
+Preparando la entrega...
+13:20:20 
+[1/7] Validando el entorno
+13:20:20 $ C:\hackathon\hackathon-unam-cucupumas\.hackathon\.tools\uv\uv.exe pip check --python C:\hackathon\hackathon-unam-cucupumas\.venv\Scripts\python.exe
+13:20:21 Checked 57 packages in 3ms
+All installed packages are compatible
+13:20:21 $ C:\hackathon\hackathon-unam-cucupumas\.venv\Scripts\python.exe -c import pandas, numpy, fastapi, uvicorn, pydantic, strands, boto3, httpx
+13:20:22 
+13:20:22   Pieza              Esperado                            Encontrado      Estado
+13:20:22   -----------------  ----------------------------------  --------------  ------
+13:20:22   uv                 0.11.19                             0.11.19         OK    
+13:20:22   Python (.venv)     3.12.12                             3.12.12         OK    
+13:20:22   Node               v22.23.1                            v22.23.1        OK    
+13:20:22   npm                10.x                                10.9.8          OK    
+13:20:22   Paquetes Python    9 fijos                             9 coinciden     OK    
+13:20:22   Paquetes npm       12 fijos                            12 coinciden    OK    
+13:20:22   pip check          sin conflictos                      sin conflictos  OK    
+13:20:22   Importar paquetes  pandas, fastapi, pydantic, strands  importan        OK    
+13:20:22 
+[2/7] Revisando el README y el stack
+13:20:22     README encontrado
+13:20:23 $ C:\hackathon\hackathon-unam-cucupumas\.venv\Scripts\python.exe -c import backend.main as m;assert hasattr(m,'app'), 'APP';assert any(getattr(r,'path','')=='/health' for r in m.app.routes), 'HEALTH'
+13:20:25 
+13:20:25     El proyecto sigue el stack del evento
+13:20:25     Rutas del dashboard OK (ninguna empieza con '/')
+13:20:25 
+[3/7] Compilando el dashboard (vite build)
+13:20:25 $ C:\hackathon\hackathon-unam-cucupumas\.hackathon\.tools\node\node.exe C:\hackathon\hackathon-unam-cucupumas\dashboard\node_modules\vite\bin\vite.js build
+13:20:28 [36mvite v5.4.21 [32mbuilding for production...[36m[39m
+transforming...
+[32m✓[39m 431 modules transformed.
+rendering chunks...
+computing gzip size...
+[2mdist/[22m[32mindex.html                 [39m[1m[2m  0.38 kB[22m[1m[22m[2m │ gzip:   0.27 kB[22m
+[2mdist/[22m[35massets/index-Cr5rgIs-.css  [39m[1m[2m 17.37 kB[22m[1m[22m[2m │ gzip:   4.26 kB[22m
+[2mdist/[22m[36massets/index-ouxmtMs8.js   [39m[1m[33m621.97 kB[39m[22m[2m │ gzip: 184.27 kB[22m
+[33m
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+[32m✓ built in 3.07s[39m
+13:20:28     Dashboard compilado en dashboard/dist
+13:20:28 $ C:\hackathon\hackathon-unam-cucupumas\.hackathon\.tools\node\node.exe C:\hackathon\hackathon-unam-cucupumas\dashboard\node_modules\typescript\bin\tsc --noEmit -p C:\hackathon\hackathon-unam-cucupumas\dashboard
+13:20:30 
+13:20:30 
+[4/7] Comprobando el backend (sintaxis e importación)
+13:20:30 $ C:\hackathon\hackathon-unam-cucupumas\.venv\Scripts\python.exe -m compileall -q backend
+13:20:30 
+13:20:30 $ C:\hackathon\hackathon-unam-cucupumas\.venv\Scripts\python.exe -c import backend.main
+13:20:33 
+13:20:33     Backend OK (backend.main se importa sin errores)
+13:20:33 
+[5/7] Buscando llaves y credenciales en tus archivos
+13:20:33     .env NO se incluye en el .zip (las llaves de desarrollo no viajan; el despliegue usa su propio rol)
+13:20:33     Sin credenciales a la vista
+13:20:33 
+[6/7] Empaquetando
+13:20:33 
+[7/7] Verificando el .zip
+13:20:33     58 archivos, 4.1 MB
+13:20:33 
+LISTO. Sube este archivo:
+  C:\hackathon\entrega-hackathon-unam-cucupumas-20261120-1320.zip
+13:20:33 FIN con código de salida 0

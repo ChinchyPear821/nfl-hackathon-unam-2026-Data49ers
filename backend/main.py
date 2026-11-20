@@ -31,6 +31,8 @@ equipos_df = pd.read_csv(DATA / "equipos.csv")   # solo cosmético: colores del 
 presion_df = pd.read_csv(DATA / "presion.csv")   # veredicto de presión por jugada
 curva_bolsillo_df = pd.read_csv(DATA / "curva_bolsillo.csv")
 resumen_presion_df = pd.read_csv(DATA / "resumen_presion.csv")   # 8,524 jugadas de pase (con capturas)
+riesgo_df = pd.read_csv(DATA / "riesgo.csv")                     # riesgo de presión por cuadro (modelo)
+riesgo_modelo_df = pd.read_csv(DATA / "riesgo_modelo.csv")       # AUC por tramo, semanas 7-8
 
 
 def limpio(df: pd.DataFrame) -> list[dict]:
@@ -61,6 +63,12 @@ FORMACIONES = limpio(formaciones_df)
 EQUIPOS = limpio(equipos_df)
 CURVA_BOLSILLO = limpio(curva_bolsillo_df.sort_values(["veredicto_presion", "seg"]))
 PRESION = {r["jugada_id"]: r for r in limpio(presion_df)}
+RIESGO_MODELO = limpio(riesgo_modelo_df)
+
+# riesgo por jugada, ordenado por cuadro (del snap al lanzamiento)
+RIESGO: dict[str, list[dict]] = {}
+for jid, g in riesgo_df.groupby("jugada_id"):
+    RIESGO[str(jid)] = limpio(g.sort_values("frame")[["frame", "riesgo"]])
 
 # opciones por jugada, de mayor a menor probabilidad
 OPCIONES: dict[str, list[dict]] = {}
@@ -141,6 +149,18 @@ def get_equipos():
 @app.get("/api/curva-bolsillo")
 def get_curva_bolsillo():
     return CURVA_BOLSILLO
+
+
+@app.get("/api/jugadas/{jugada_id}/riesgo")
+def get_riesgo(jugada_id: str):
+    if jugada_id not in RIESGO:
+        raise HTTPException(status_code=404, detail="Jugada no encontrada")
+    return RIESGO[jugada_id]
+
+
+@app.get("/api/riesgo-modelo")
+def get_riesgo_modelo():
+    return RIESGO_MODELO
 
 
 # ── IA opcional: comentarista con Amazon Nova (Bedrock) ─────────────────────

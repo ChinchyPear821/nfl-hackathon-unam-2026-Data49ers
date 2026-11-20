@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import type { Frame, Opcion, Play, QBRow } from '../api'
+import type { Frame, Opcion, Play, QBRow, RiesgoCuadro } from '../api'
 import { RESULTADO } from '../api'
 import MiniBolsillo from './MiniBolsillo'
 import { COLOR_VEREDICTO, PALETA, ROL_LABEL, colorBolsillo, colorProb, colorSep } from './paleta'
@@ -24,6 +24,7 @@ interface Props {
   play: Play
   qbs: QBRow[]
   frames: Frame[]
+  riesgo?: RiesgoCuadro[]       // riesgo de presión por cuadro (riesgo.csv)
   frameActual: number | null
   opciones: Opcion[]
   selectedId: string | null
@@ -34,6 +35,8 @@ interface Props {
   onOpcionHover: (id: string | null) => void
   modo3d: boolean
 }
+
+const SIN_RIESGO: RiesgoCuadro[] = []
 
 const PESTANAS: { id: Pestana; label: string }[] = [
   { id: 'receptores', label: 'Receptores' },
@@ -53,6 +56,7 @@ const Dato = ({ k, v }: { k: string; v: string | number | null }) => (
 
 export default function PanelJugada(props: Props) {
   const { play, qbs, frames, frameActual, opciones, selectedId, onSelect, pestana, onPestana, opcionHover, onOpcionHover, modo3d } = props
+  const riesgo = props.riesgo ?? SIN_RIESGO
 
   // un jugador por entidad (primer cuadro) para listarlos
   const jugadores = useMemo(() => {
@@ -73,6 +77,16 @@ export default function PanelJugada(props: Props) {
     () => (frameActual == null ? [] : frames.filter(f => f.frame === frameActual)),
     [frames, frameActual],
   )
+  // riesgo del modelo por segundo (solo donde hay valor: del snap al lanzamiento)
+  const serieRiesgo = useMemo(() => {
+    const segDe = new Map<number, number>()
+    frames.forEach(f => { if (!segDe.has(f.frame)) segDe.set(f.frame, f.seg) })
+    return riesgo
+      .filter(r => segDe.has(r.frame))
+      .map(r => ({ seg: segDe.get(r.frame) as number, r: r.riesgo }))
+      .sort((a, b) => a.seg - b.seg)
+  }, [frames, riesgo])
+
   const serieQB = useMemo(
     () => frames
       .filter(f => f.rol === 'Pass' && f.dist_rusher != null)
@@ -216,7 +230,7 @@ export default function PanelJugada(props: Props) {
         <p className="text-[11px] text-secundario mt-1">Distancia del rusher más cercano al QB.</p>
       </div>
       <div className="bg-fondo rounded-xl p-2">
-        <MiniBolsillo serie={serieQB} seg={segAhora} segLanzamiento={lanz?.seg ?? null} />
+        <MiniBolsillo serie={serieQB} serieRiesgo={serieRiesgo} seg={segAhora} segLanzamiento={lanz?.seg ?? null} />
       </div>
 
       <div className="border-t border-borde pt-3">

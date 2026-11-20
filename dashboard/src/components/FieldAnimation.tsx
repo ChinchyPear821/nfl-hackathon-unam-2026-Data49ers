@@ -3,6 +3,9 @@ import type { Equipo, Frame, Play } from '../api'
 import { RESULTADO } from '../api'
 import { PALETA, ROL_LABEL, colorBolsillo, colorSep } from './paleta'
 import Marcador from './Marcador'
+import MedidorRiesgo from './MedidorRiesgo'
+import { riesgoPorCuadro } from './riesgo'
+import type { RiesgoCuadro } from '../api'
 
 interface Props {
   frames: Frame[]
@@ -16,8 +19,10 @@ interface Props {
   onModo3d: (v: boolean) => void
   pie?: React.ReactNode                   // contenido debajo de los controles (también en pantalla completa)
   equipos?: Map<string, Equipo>           // colores del marcador (equipos.csv)
+  riesgo?: RiesgoCuadro[]                 // riesgo de presión por cuadro (riesgo.csv)
 }
 const SIN_EQUIPOS = new Map<string, Equipo>()
+const SIN_RIESGO: RiesgoCuadro[] = []
 
 const FIELD_W = 120
 const FIELD_H = 53.3
@@ -482,7 +487,7 @@ const btnOn = 'px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wi
 
 export default function FieldAnimation({
   frames, play, selectedId, onSelect, onFrame, opcionHover = null, onLanzamiento, modo3d, onModo3d, pie,
-  equipos = SIN_EQUIPOS,
+  equipos = SIN_EQUIPOS, riesgo = SIN_RIESGO,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
@@ -554,6 +559,10 @@ export default function FieldAnimation({
 
   const frameNum = frameNums[idx]
   const current = useMemo(() => byFrame.get(frameNum) ?? [], [byFrame, frameNum])
+  // riesgo del cuadro actual: "—" antes del snap, último valor después del lanzamiento.
+  // La animación avanza cuadro por cuadro (sin interpolar), así que el medidor toma el valor del cuadro.
+  const riesgoCuadro = useMemo(() => riesgoPorCuadro(frames, riesgo), [frames, riesgo])
+  const riesgoAhora = riesgo.length ? riesgoCuadro.get(frameNum) ?? null : null
 
   const estado: Live = {
     current, selectedId, hoverId, opcionHover, soloClave, modo3d, beta, alfa, seguir, idx, lanzIdx, frameNum, paths, landing, play,
@@ -876,6 +885,13 @@ export default function FieldAnimation({
             {seg.toFixed(1)} s
           </span>
         </div>
+
+        {/* medidor de riesgo de presión: esquina superior derecha, plano en todas las vistas */}
+        {riesgo.length > 0 && (
+          <div className="absolute top-3 right-3 pointer-events-none z-20">
+            <MedidorRiesgo valor={riesgoAhora} />
+          </div>
+        )}
 
         {/* marcador estilo transmisión: plano en todas las vistas (fuera del contenedor que gira en 3D) */}
         {verMarcador && (

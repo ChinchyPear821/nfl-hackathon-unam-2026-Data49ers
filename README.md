@@ -42,6 +42,7 @@ Tres datos que acompañan la historia:
 - **Semáforo de receptores:** cada receptor tiene un halo verde (3+ yd de separación), ámbar (1 a 3 yd) o rojo (cubierto) que cambia en vivo. Alrededor del QB, un círculo punteado muestra qué tan cerca está el rusher más próximo.
 - **Pausa automática al lanzar:** la app dice a quién va el pase y su probabilidad, y lista **todas las opciones del QB** con su separación, su probabilidad y si pasaban la línea de primer down.
 - **¿Culpa de la línea o del reloj del QB?:** cada jugada tiene un veredicto de presión ("Bolsillo limpio", "La línea no aguantó", "Rusher libre (esquema)" o "El QB retuvo el balón") y cada QB tiene su perfil de presiones.
+- **Riesgo de presión en vivo (IA):** un medidor sobre el campo calcula, cuadro por cuadro, la probabilidad de que el QB termine presionado, y pasa de "Bolsillo estable" a "Alerta de presión" y "Colapso inminente" conforme se acercan los rushers.
 - **Comentarista con IA (Amazon Nova):** narra el contexto del partido, lo que pasó y lo que el QB pudo hacer, y lo puede leer en voz alta.
 
 ![Explorar jugadas en 3D](docs/explorar_3d.jpg)
@@ -64,6 +65,7 @@ El aficionado entiende en 20 segundos por qué falló el pase, sin leer una sola
 - **Receptor objetivo:** se identifica por su nombre en la descripción oficial de la jugada ("pass … to X" o "intended for X"). Así encontramos el objetivo en 7,239 pases.
 - **Separación:** distancia al defensor en cobertura más cercano en el cuadro del lanzamiento, medida **antes** de saber el resultado.
 - **Probabilidad:** el % de completos de los pases con la misma separación (tabla de arriba). Es una regla transparente, no un modelo opaco. Como predicción de sí o no acierta el **69%** de las veces, contra 63% de decir siempre "completo". Su valor está en el gradiente: muestra cuánto cambian las probabilidades con cada yarda.
+- **Riesgo de presión en vivo:** regresión logística por cuadro, solo con lo que se sabe en ese instante (segundos desde el snap, distancia del rusher más cercano al QB y qué tan rápido se cierra, rushers a 3 y 5 yd, rushers y bloqueadores, velocidad del QB, down, yardas, defensores en la caja y formación). Se entrenó con las semanas 1 a 6 y se probó con las 7 y 8, que no vio: AUC 0.70 en total, 0.61 en el primer segundo y 0.84 después de 3 s. Está basado en el análisis de presión del equipo.
 - **Mejor opción:** el receptor con más separación que ya pasó la línea de scrimmage, si supera al elegido por 2 yd o más.
 - **Presión:** hubo presión si PFF marca golpe, prisa o captura. "La línea no aguantó" es presión con culpa de PFF a un liniero y lanzamiento en 3.0 s o menos; "Rusher libre (esquema)", presión en 3.0 s o menos sin culpa a un liniero; y "El QB retuvo el balón", presión en jugadas de más de 3.0 s.
 - **Procesamiento:** los CSV originales (826 MB) se procesaron fuera de la app con DuckDB. En `data/` solo están los resúmenes que usa la app.
@@ -72,6 +74,7 @@ El aficionado entiende en 20 segundos por qué falló el pase, sin leer una sola
 
 - El tracking termina medio segundo después del lanzamiento, así que no medimos la trayectoria completa del balón ni dónde cayó.
 - La separación no lo explica todo: la precisión del lanzamiento, el viento o una atrapada difícil no están en los datos.
+- El riesgo de presión en vivo apenas supera al azar en el primer segundo de la jugada; su valor está de los 2 segundos en adelante.
 - El umbral de 3.0 s para la presión es una decisión del equipo: la mitad de los QB lanzan antes de 2.7 s.
 - Correlación no es causalidad: la separación se mide antes del resultado, pero eso no prueba que sea la única causa.
 
@@ -90,8 +93,9 @@ Abre `http://localhost:5173`. Para el comentarista con IA, copia `.env.example` 
 
 ## Equipo
 
-**Data49ers.** Separación al lanzar, predicción y app. Análisis de presión ("¿culpa de la línea o del reloj del QB?"):. Hecho con Kiro, Amazon Nova.
+**Data49ers**
 
-## Integrantes
-- Saul Casas Lorenzo
-- Jose Emmanuel Islas Romero
+- **Saul Casas Lorenzo:** separación al lanzar, predicción y app.
+- **Jose Emmanuel Islas Romero:** análisis de presión ("¿culpa de la línea o del reloj del QB?") y modelo de riesgo en vivo.
+
+Hecho con Kiro y Amazon Nova.

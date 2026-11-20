@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { fetchEquipos, fetchFrames, fetchJugadas, fetchOpciones, fetchQBs } from '../api'
-import type { Equipo, Frame, Opcion, Play, QBRow } from '../api'
+import { fetchEquipos, fetchFrames, fetchJugadas, fetchOpciones, fetchQBs, fetchRiesgo } from '../api'
+import type { Equipo, Frame, Opcion, Play, QBRow, RiesgoCuadro } from '../api'
 import FiltrosJugadas, { FILTROS_VACIOS, filtrar } from './FiltrosJugadas'
 import type { Filtros } from './FiltrosJugadas'
 import FieldAnimation from './FieldAnimation'
@@ -15,6 +15,7 @@ export default function Explorar() {
   const [playId, setPlayId] = useState<string | null>(null)
   const [frames, setFrames] = useState<Frame[]>([])
   const [opciones, setOpciones] = useState<Opcion[]>([])
+  const [riesgo, setRiesgo] = useState<RiesgoCuadro[]>([])
   const [qbs, setQbs] = useState<QBRow[]>([])
   const [equipos, setEquipos] = useState<Map<string, Equipo>>(new Map())
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -46,7 +47,10 @@ export default function Explorar() {
     setOpcionHover(null)
     setFrames([])
     setOpciones([])
+    setRiesgo([])
     fetchOpciones(playId).then(o => { if (vigente) setOpciones(o) }).catch(() => { if (vigente) setOpciones([]) })
+    // opcional: si falla, simplemente no se muestra el medidor
+    fetchRiesgo(playId).then(r => { if (vigente) setRiesgo(r) }).catch(() => { if (vigente) setRiesgo([]) })
     fetchFrames(playId)
       .then(f => { if (vigente) setFrames(f) })
       .catch(e => { if (vigente) setError(String(e)) })
@@ -87,6 +91,7 @@ export default function Explorar() {
               onModo3d={setModo3d}
               pie={<Comentarista jugadaId={play.jugada_id} />}
               equipos={equipos}
+              riesgo={riesgo}
             />
           )}
         </main>
@@ -97,6 +102,7 @@ export default function Explorar() {
               play={play}
               qbs={qbs}
               frames={frames}
+              riesgo={riesgo}
               frameActual={frameActual}
               opciones={opciones}
               selectedId={selectedId}
