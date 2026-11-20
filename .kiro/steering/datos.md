@@ -1,32 +1,30 @@
 ---
 inclusion: always
 ---
-# Datos  (PLANTILLA: llenar los [ ] el día del evento)
+# Datos (ya procesados; viven en `data/`)
 
-## Flujo
-1. Dataset crudo → `C:\datos-tools\crudo\`. Nunca dentro del proyecto.
-2. DuckDB lo procesa con `exportar.py` en `C:\datos-tools`.
-3. Los resultados pequeños (CSV) van a `data/`. Nunca Parquet: pandas no tiene pyarrow.
-4. `backend/main.py` los carga con pandas al arrancar y los expone en `/api/...`.
+Generados con DuckDB fuera del proyecto. Coordenadas en yardas, normalizadas: el ataque SIEMPRE va hacia la derecha. `x` 0–120 (zonas de anotación en 0–10 y 110–120), `y` 0–53.3.
 
-## Qué es el dataset
-- Edición / temporada: [ ]
-- Qué mide (una frase): [ ]
-- Tablas y llave para unirlas: [ ]  (ej. `game_id, play_id`)
-- Granularidad del tracking: [ ] (frames por segundo, qué jugadores aparecen, si hay balón)
-- Trampas conocidas: [ ] (dirección del campo, unidades, columnas con texto raro, nulos)
-
-## Hallazgo elegido
-- Métrica: [ ] (cómo se calcula y en qué instante)
-- Resultado clave: [ ] (cifras de los grupos extremos)
-
-## Contrato de `data/`
 | Archivo | Una fila por | Columnas |
 |---|---|---|
-| `jugadas.csv` | jugada | `jugada_id` + [contexto] + [métricas del hallazgo] + `grupo` |
-| `frames.csv` | entidad por frame (solo jugadas animables) | `jugada_id, frame, fase, entidad_id, nombre, equipo, rol, posicion, es_balon, x, y` |
-| `metricas.csv` | categoría de gráfica | `grafica, categoria, jugadas` + [porcentajes o promedios] |
+| `jugadas.csv` | pase con receptor identificado (7,239) | `jugada_id` ("gameId-playId"), `descripcion`, `resultado` (C completo, I incompleto, IN intercepción), `ataque`, `defensa`, `cuarto`, `down`, `yards_to_go`, `yardas`, `cobertura`, `formacion`, `semana`, `reloj` (MM:SS que quedaban en el cuarto), `marcador_ataque`, `marcador_defensa`, `ataque_es_local`, `qb`, `receptor`, `receptor_id`, `receptor_camiseta`, `sep_objetivo` (yd), `prob_completo` (0–1), `mejor_nombre`, `mejor_id`, `mejor_camiseta`, `mejor_sep`, `mejor_prob`, `habia_mejor_opcion` (bool), `seg_para_lanzar`, `dist_rusher` (yd del rusher más cercano al QB al lanzar), `los_x` (línea de scrimmage), `primer_down_x` |
+| `frames.csv` | entidad por cuadro (10 por segundo) de 90 jugadas animables | `jugada_id`, `frame`, `seg` (segundos desde el snap; negativo antes), `fase` (`antes_snap`, `jugada`, `aire`), `entidad_id` (nflId o `balon`), `nombre`, `camiseta`, `posicion`, `equipo` (`ataque`, `defensa`, `balon`), `rol` (`Pass` = QB, `Pass Route` = receptor, `Pass Block`, `Pass Rush`, `Coverage`, `Balón`), `es_balon`, `x`, `y`, `sep` (solo receptores: yd al defensor más cercano), `dist_rusher` (solo QB) |
+| `seleccion.csv` | jugada animable (90) | `jugada_id`, `gameId`, `playId`, `historia` (6 tipos: "Receptor abierto, pase fácil", "Completo bien cubierto", "Abierto y aun así falló", "Había un receptor más abierto", "Lanzó bajo presión", "Intercepción") |
+| `separacion.csv` | yarda de separación (0..8, 8 = 8+) | `sep_yd`, `jugadas`, `pct_completo`, `pct_intercepcion` |
 
-- `jugada_id` = `"<game_id>-<play_id>"`.
-- Coordenadas en yardas, `x` 0–120, `y` 0–53.3, ataque siempre de izquierda a derecha.
-- Si el contrato de `frames.csv` no cambia, la animación funciona sin tocar el frontend.
+- El instante del lanzamiento es el último cuadro con `fase` distinto de `aire`.
+- `prob_completo` = `pct_completo` de `separacion.csv` para la separación del objetivo. Es "de pases así, X% se completan", no un modelo opaco.
+- Valores vacíos: el jugador no tiene ese rol. En el backend convierte NaN a None antes de responder.
+
+## Archivos adicionales
+| Archivo | Una fila por | Columnas |
+|---|---|---|
+| `opciones.csv` | receptor de cada jugada animable, en el instante del lanzamiento | `jugada_id`, `entidad_id`, `nombre`, `camiseta`, `posicion`, `sep`, `prob_completo`, `pasa_scrimmage`, `pasa_primer_down`, `es_objetivo`, `es_mejor_opcion`. Sirve para "¿qué habría pasado si lanzaba a otro?": cada opción con su probabilidad. |
+| `qbs.csv` | QB con 100+ jugadas de pase (34) | `qb`, `equipo`, `jugadas`, `pct_completo`, `capturas`, `intercepciones`, `yardas_por_jugada`, `seg_para_lanzar`, `pct_bajo_presion` (golpe, prisa o captura según PFF), `pct_completo_con_presion`, `pct_completo_sin_presion`, `sep_prom_objetivo`, `pct_habia_mejor_opcion` |
+| `formaciones.csv` | formación ofensiva (5) | `formacion`, `jugadas`, `pct_completo`, `pct_captura`, `pct_bajo_presion`, `seg_para_lanzar`, `sep_prom_objetivo`, `yardas_por_jugada` |
+
+- La presión cuadro por cuadro ya está en `frames.csv`: columna `dist_rusher` en la fila del QB (`rol = Pass`).
+- Entre formaciones el % de completos casi no cambia (60–64%); la separación cambia mucho más (23% a 85%). Si se muestra, decirlo así.
+| `equipos.csv` | equipo (32) | `equipo` (abreviatura), `nombre`, `ciudad`, `color_primario`, `color_secundario`. Solo cosmético (colores del marcador); no es dato de análisis. |
+
+- El dataset NO trae tiempos fuera ni reloj de jugada (los ":17" de la TV). No los inventes.

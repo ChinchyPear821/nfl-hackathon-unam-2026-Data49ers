@@ -1,7 +1,6 @@
-"""Backend NFL UNAM. Ejecuta: .venv/Scripts/uvicorn backend.main:app --reload"""
-import math, os
+"""Backend "¿Se completará el pase?". Ejecuta: .venv/Scripts/uvicorn backend.main:app --reload"""
+import os
 from pathlib import Path
-
 def cargar_env():
     f = Path(__file__).resolve().parent.parent / ".env"
     if f.exists():
@@ -10,221 +9,232 @@ def cargar_env():
             if linea and not linea.startswith("#") and "=" in linea:
                 k, v = linea.split("=", 1)
                 os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
-
 cargar_env()
-
+import numpy as np
+import pandas as pd
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
-import pandas as pd
 
-app = FastAPI(title="Hackathon NFL UNAM")
-
+app = FastAPI(title="¿Se completará el pase?")
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
 
-# ── Carga ────────────────────────────────────────────────────────────────────
-jugadas_df     = pd.read_csv(DATA / "jugadas.csv",      dtype=str)
-frames_df      = pd.read_csv(DATA / "frames.csv",       dtype=str)
-metricas_df    = pd.read_csv(DATA / "metricas.csv",     dtype=str)
-players_df     = pd.read_csv(DATA / "players.csv",      dtype=str)
-equipos_df     = pd.read_csv(DATA / "equipos.csv",      dtype=str)
-curva_df       = pd.read_csv(DATA / "curva_ventaja.csv",dtype=str)
-heatmap_df     = pd.read_csv(DATA / "heatmap.csv",      dtype=str)
-clusters_df    = pd.read_csv(DATA / "clusters.csv",     dtype=str)
+# ── Carga (una vez, al arrancar) ─────────────────────────────────────────────
+jugadas_df = pd.read_csv(DATA / "jugadas.csv", dtype={"receptor_id": str, "mejor_id": str})
+frames_df = pd.read_csv(DATA / "frames.csv", dtype={"entidad_id": str})
+seleccion_df = pd.read_csv(DATA / "seleccion.csv")
+separacion_df = pd.read_csv(DATA / "separacion.csv")
+opciones_df = pd.read_csv(DATA / "opciones.csv", dtype={"entidad_id": str})
+qbs_df = pd.read_csv(DATA / "qbs.csv")
+formaciones_df = pd.read_csv(DATA / "formaciones.csv")
+equipos_df = pd.read_csv(DATA / "equipos.csv")   # solo cosmético: colores del marcador
 
-jugadas_animables = set(frames_df["jugada_id"].unique())
 
-for col in ["yardas","epa","dist_receptor","dist_defensor","ventaja",
-            "vel_requerida","vel_receptor","brecha_vel","distancia_pase","los_x","primer_down_x",
-            "tiempo_vuelo_s","yards_to_go"]:
-    if col in jugadas_df.columns:
-        jugadas_df[col] = pd.to_numeric(jugadas_df[col], errors="coerce")
+def limpio(df: pd.DataFrame) -> list[dict]:
+    """DataFrame -> lista de dicts JSON-seguros (NaN/inf -> None)."""
+    df = df.replace([np.inf, -np.inf], np.nan)
+    df = df.astype(object).where(df.notna(), None)
+    return df.to_dict("records")
 
-for col in ["jugadas","pct_completo","pct_intercepcion"]:
-    metricas_df[col] = pd.to_numeric(metricas_df[col], errors="coerce")
 
-for col in ["frame","x","y"]:
-    frames_df[col] = pd.to_numeric(frames_df[col], errors="coerce")
+# 90 jugadas animables: historia + columnas de jugadas.csv, en el orden de seleccion.csv
+_animables = (
+    seleccion_df[["jugada_id", "historia"]]
+    .merge(jugadas_df, on="jugada_id", how="inner")
+)
+JUGADAS = limpio(_animables)
+IDS_ANIMABLES = set(_animables["jugada_id"])
 
-for col in ["jugadas","vel_max",
-            "veces_objetivo","pct_completo_objetivo","ventaja_prom_objetivo","yardas_objetivo",
-            "qb_pases","qb_pct_completo","qb_pct_intercepcion","qb_ventaja_prom",
-            "qb_distancia_prom","qb_epa_prom",
-            "def_veces_cercano","def_pct_completo_permitido","def_intercepciones",
-            "def_ventaja_prom_permitida",
-            "pc1","pc2","vel_max_prom","acel_p90","profundidad",
-            "desp_lateral","sinuosidad","ventaja_prom"]:
-    if col in players_df.columns:
-        players_df[col] = pd.to_numeric(players_df[col], errors="coerce")
+# frames por jugada, ya limpios y ordenados
+FRAMES: dict[str, list[dict]] = {}
+for jid, g in frames_df[frames_df["jugada_id"].isin(IDS_ANIMABLES)].groupby("jugada_id"):
+    g = g.sort_values(["frame", "entidad_id"]).drop(columns=["jugada_id"])
+    FRAMES[str(jid)] = limpio(g)
 
-for col in ["ventaja_yd","jugadas","pct_completo","pct_intercepcion"]:
-    if col in curva_df.columns:
-        curva_df[col] = pd.to_numeric(curva_df[col], errors="coerce")
+SEPARACION = limpio(separacion_df)
+QBS = limpio(qbs_df)
+FORMACIONES = limpio(formaciones_df)
+EQUIPOS = limpio(equipos_df)
 
-for col in ["jugadas","pct_completo","ventaja_prom","epa_prom"]:
-    if col in heatmap_df.columns:
-        heatmap_df[col] = pd.to_numeric(heatmap_df[col], errors="coerce")
+# opciones por jugada, de mayor a menor probabilidad
+OPCIONES: dict[str, list[dict]] = {}
+for jid, g in opciones_df.groupby("jugada_id"):
+    g = g.sort_values(["prob_completo", "sep"], ascending=False).drop(columns=["jugada_id"])
+    OPCIONES[str(jid)] = limpio(g)
 
-for col in ["jugadores","vel_max_prom","acel_p90","profundidad",
-            "desp_lateral","sinuosidad","ventaja_prom"]:
-    if col in clusters_df.columns:
-        clusters_df[col] = pd.to_numeric(clusters_df[col], errors="coerce")
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
-def _clean(v):
-    if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
-        return None
-    return v
+def _resumen() -> dict:
+    sep = separacion_df.set_index("sep_yd")["pct_completo"]
+    return {
+        "total_pases": int(len(jugadas_df)),
+        "pct_completo_menos_1yd": float(sep.loc[0]),
+        "pct_completo_8_mas": float(sep.loc[8]),
+        "pct_hubo_mejor_opcion": float(jugadas_df["habia_mejor_opcion"].mean()),
+        "jugadas_animables": len(JUGADAS),
+    }
 
-def _safe(df: pd.DataFrame):
-    records = df.where(pd.notna(df), None).to_dict(orient="records")
-    return [{k: _clean(v) for k, v in row.items()} for row in records]
 
-# ── Health ────────────────────────────────────────────────────────────────────
+RESUMEN = _resumen()
+
+
+# ── API ──────────────────────────────────────────────────────────────────────
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
-# ── API ───────────────────────────────────────────────────────────────────────
-@app.get("/api/plays")
-def get_plays():
-    df = jugadas_df[jugadas_df["jugada_id"].isin(jugadas_animables)].copy()
-    return _safe(df)
 
-@app.get("/api/plays/{jugada_id}/frames")
+@app.get("/api/resumen")
+def get_resumen():
+    return RESUMEN
+
+
+@app.get("/api/separacion")
+def get_separacion():
+    return SEPARACION
+
+
+@app.get("/api/jugadas")
+def get_jugadas():
+    return JUGADAS
+
+
+@app.get("/api/jugadas/{jugada_id}/frames")
 def get_frames(jugada_id: str):
-    df = frames_df[frames_df["jugada_id"] == jugada_id]
-    if df.empty:
+    if jugada_id not in FRAMES:
         raise HTTPException(status_code=404, detail="Jugada no encontrada")
-    return _safe(df)
-
-@app.get("/api/metrics")
-def get_metrics():
-    total     = len(jugadas_df)
-    completos = (jugadas_df["resultado"] == "C").sum()
-    v5 = jugadas_df[jugadas_df["grupo_ventaja"] == "5 Receptor +5 yd"]
-    d2 = jugadas_df[jugadas_df["grupo_ventaja"] == "1 Defensor +2 yd"]
-    return {
-        "totales": {
-            "jugadas":                   int(total),
-            "pct_completo_general":      round(completos / total, 4) if total else 0,
-            "pct_completo_ventaja5":     round((v5["resultado"] == "C").sum()  / len(v5), 4) if len(v5) else 0,
-            "pct_intercepcion_defensor2":round((d2["resultado"] == "IN").sum() / len(d2), 4) if len(d2) else 0,
-        },
-        "graficas": _safe(metricas_df),
-    }
-
-@app.get("/api/players")
-def get_players():
-    return _safe(players_df)
-
-@app.get("/api/teams")
-def get_teams():
-    """Stats por equipo: como ataque (sus pases) y como defensa (pases que permitió)."""
-    es_c  = jugadas_df["resultado"] == "C"
-    es_in = jugadas_df["resultado"] == "IN"
-    df = jugadas_df.assign(c=es_c.astype(float), i=es_in.astype(float))
-    ata = df.groupby("ataque").agg(jugadas=("jugada_id", "size"), pct_completo=("c", "mean"),
-                                   pct_intercepcion=("i", "mean"), epa_prom=("epa", "mean"),
-                                   yardas_prom=("yardas", "mean"), ventaja_prom=("ventaja", "mean"))
-    de = df.groupby("defensa").agg(def_jugadas=("jugada_id", "size"), def_pct_completo_permitido=("c", "mean"),
-                                   def_intercepciones=("i", "sum"), def_ventaja_permitida=("ventaja", "mean"),
-                                   def_epa_permitido=("epa", "mean"))
-    res = ata.join(de, how="outer").reset_index().rename(columns={"index": "equipo"})
-    res = res.rename(columns={res.columns[0]: "equipo"}).round(4)
-    res["def_intercepciones"] = res["def_intercepciones"].astype("Int64")
-    return _safe(res.sort_values("jugadas", ascending=False))
+    return FRAMES[jugada_id]
 
 
-# ── Acto 3: decisión por situación ───────────────────────────────────────────
-def _num(df):
-    for c in df.columns:
-        if c not in ("situacion", "ruta", "receptor", "entidad_id", "equipo"):
-            df[c] = pd.to_numeric(df[c], errors="coerce")
-    return df
-
-situaciones_df = _num(pd.read_csv(DATA / "situaciones.csv", dtype=str))
-sit_rutas_df   = _num(pd.read_csv(DATA / "situacion_rutas.csv", dtype=str))
-rec_ruta_df    = _num(pd.read_csv(DATA / "receptores_ruta.csv", dtype=str))
-rival_df       = _num(pd.read_csv(DATA / "rival.csv", dtype=str))
-
-@app.get("/api/decision")
-def get_decision():
-    return {
-        "situaciones": _safe(situaciones_df),
-        "rutas": _safe(sit_rutas_df),
-        "receptores": _safe(rec_ruta_df),
-        "rival": _safe(rival_df),
-    }
-
-
-# ── IA opcional: narración de una jugada con Amazon Nova (Bedrock) ───────────
-@app.get("/api/plays/{jugada_id}/narracion")
-def narrar_jugada(jugada_id: str):
-    """Explica la jugada en lenguaje sencillo. Si Bedrock no está disponible, responde disponible=False."""
-    fila = jugadas_df[jugadas_df["jugada_id"] == jugada_id]
-    if fila.empty:
+@app.get("/api/jugadas/{jugada_id}/opciones")
+def get_opciones(jugada_id: str):
+    if jugada_id not in OPCIONES:
         raise HTTPException(status_code=404, detail="Jugada no encontrada")
-    j = fila.iloc[0]
-    datos = (
-        f"Descripción oficial: {j['descripcion']}\n"
-        f"Resultado: {j['resultado']} (C=completo, I=incompleto, IN=intercepción)\n"
-        f"QB: {j['qb']}. Receptor objetivo: {j['receptor']}. Defensor más cercano al punto de caída: {j.get('defensor')}\n"
-        f"Ruta: {j['ruta']}. Cobertura: {j['cobertura']}. Distancia del pase: {j['distancia_pase']} yd\n"
-        f"Al momento del lanzamiento: receptor a {j['dist_receptor']} yd del punto de caída, "
-        f"defensor más cercano a {j['dist_defensor']} yd. Ventaja del receptor: {j['ventaja']} yd.\n"
-        f"Velocidad que necesitaba el receptor: {j['vel_requerida']} yd/s; iba a {j['vel_receptor']} yd/s.\n"
-        f"Contexto del estudio: con ventaja de 5+ yd se completa el 92% de los pases; "
-        f"si el defensor está 2+ yd más cerca, solo el 44%."
-    )
-    prompt = (
-        "Eres analista de futbol americano. Con SOLO estos datos, explica en español, en 3 oraciones cortas "
-        "y para alguien que no conoce el deporte, qué pasó en la jugada y por qué la ventaja al lanzar "
-        "ayuda a entender el resultado. No inventes datos que no estén aquí.\n\n" + datos
-    )
-    try:
-        import boto3
-        region = os.environ.get("AWS_REGION", "us-east-1")
-        modelo = os.environ.get("BEDROCK_MODEL_ID", "us.amazon.nova-pro-v1:0")
-        cliente = boto3.client("bedrock-runtime", region_name=region)
-        r = cliente.converse(
-            modelId=modelo,
-            messages=[{"role": "user", "content": [{"text": prompt}]}],
-            inferenceConfig={"maxTokens": 300, "temperature": 0.3},
-        )
-        texto = r["output"]["message"]["content"][0]["text"]
-        return {"disponible": True, "texto": texto}
-    except Exception as e:  # sin credenciales, sin red o modelo no disponible: la app sigue funcionando
-        return {"disponible": False, "texto": None, "motivo": type(e).__name__}
+    return OPCIONES[jugada_id]
+
+
+@app.get("/api/qbs")
+def get_qbs():
+    return QBS
+
+
+@app.get("/api/formaciones")
+def get_formaciones():
+    return FORMACIONES
 
 
 @app.get("/api/equipos")
 def get_equipos():
-    return _safe(equipos_df)
+    return EQUIPOS
 
-@app.get("/api/curva-ventaja")
-def get_curva_ventaja():
-    return _safe(curva_df)
 
-@app.get("/api/heatmap")
-def get_heatmap():
-    return _safe(heatmap_df)
+# ── IA opcional: comentarista con Amazon Nova (Bedrock) ─────────────────────
+_NARRACIONES: dict[str, dict] = {}
 
-@app.get("/api/clusters")
-def get_clusters():
-    return _safe(clusters_df)
 
-@app.get("/api/clusters/{cluster_id}/jugadores")
-def get_cluster_jugadores(cluster_id: int):
-    df = players_df[players_df["cluster"] == str(cluster_id)]
-    if df.empty:
-        raise HTTPException(status_code=404, detail="Cluster no encontrado")
-    cols = [c for c in ["entidad_id","nombre","posicion","equipo","jugadas",
-                        "vel_max","pc1","pc2","ventaja_prom_objetivo",
-                        "pct_completo_objetivo","cluster_nombre"] if c in df.columns]
-    return _safe(df[cols])
+def _num(v, fmt: str = "{:.1f}", sufijo: str = "") -> str:
+    """Formatea un número; 'sin dato' si viene vacío."""
+    if v is None or (isinstance(v, float) and np.isnan(v)):
+        return "sin dato"
+    return fmt.format(v) + sufijo
 
-# ── Frontend (produccion) ─────────────────────────────────────────────────────
+
+def _datos_narracion(jugada_id: str, j: pd.Series) -> str:
+    res = {"C": "pase completo", "I": "pase incompleto", "IN": "intercepción"}.get(j["resultado"], j["resultado"])
+    local = j["ataque"] if bool(j["ataque_es_local"]) else j["defensa"]
+    visita = j["defensa"] if bool(j["ataque_es_local"]) else j["ataque"]
+    opciones = OPCIONES.get(jugada_id, [])
+    mejor = next((o for o in opciones if o.get("es_mejor_opcion")), None)
+    if mejor is None:
+        alternativa = "Sin datos de opciones."
+    else:
+        alternativa = (
+            f"Mejor opción al lanzar: #{mejor['camiseta']} {mejor['nombre']}, "
+            f"{_num(mejor['sep'], sufijo=' yd')} de separación, "
+            f"{_num(mejor['prob_completo'] * 100 if mejor['prob_completo'] is not None else None, '{:.0f}', '%')} "
+            f"de pases así se completan; {'sí' if mejor.get('pasa_primer_down') else 'no'} pasaba la línea de primer down. "
+            + ("Es el mismo receptor al que lanzó el QB: eligió la mejor opción." if mejor.get("es_objetivo")
+               else "No es el receptor al que lanzó el QB.")
+        )
+    return (
+        "CONTEXTO\n"
+        f"- Ataque: {j['ataque']}. Defensa: {j['defensa']}. Local: {local}. Visitante: {visita}.\n"
+        f"- Marcador: {j['ataque']} {int(j['marcador_ataque'])}, {j['defensa']} {int(j['marcador_defensa'])}.\n"
+        f"- Cuarto {int(j['cuarto'])}, reloj {j['reloj']} por jugar en el cuarto.\n"
+        f"- {int(j['down'])}a oportunidad y {int(j['yards_to_go'])} yardas por avanzar.\n"
+        "LA JUGADA\n"
+        f"- QB: {j['qb']}. Lanzó a #{j['receptor_camiseta']} {j['receptor']} con {_num(j['sep_objetivo'], sufijo=' yd')} de separación; "
+        f"de los pases con esa separación se completa el {_num(j['prob_completo'] * 100, '{:.0f}', '%')}.\n"
+        f"- Tiempo para lanzar: {_num(j['seg_para_lanzar'], sufijo=' s')}. "
+        f"Rusher más cercano al QB al lanzar: {_num(j['dist_rusher'], sufijo=' yd')}.\n"
+        f"- Resultado: {res}, {int(j['yardas'])} yardas. Descripción oficial: {j['descripcion']}\n"
+        "QUÉ PUDO HACER\n"
+        f"- {alternativa}"
+    )
+
+
+def _leer_narracion(texto: str) -> dict:
+    """Extrae {contexto, jugada, alternativa} del texto del modelo; si no es JSON válido, todo va en 'jugada'."""
+    import json
+    limpio_txt = texto.strip()
+    if limpio_txt.startswith("```"):
+        limpio_txt = limpio_txt.strip("`")
+        if limpio_txt.lower().startswith("json"):
+            limpio_txt = limpio_txt[4:]
+    ini, fin = limpio_txt.find("{"), limpio_txt.rfind("}")
+    try:
+        if ini < 0 or fin <= ini:
+            raise ValueError("sin JSON")
+        d = json.loads(limpio_txt[ini:fin + 1])
+        partes = {k: (str(d[k]).strip() if d.get(k) not in (None, "") else None) for k in ("contexto", "jugada", "alternativa")}
+        if not any(partes.values()):
+            raise ValueError("JSON vacío")
+        return partes
+    except (ValueError, TypeError, AttributeError):
+        return {"contexto": None, "jugada": texto.strip(), "alternativa": None}
+
+
+@app.get("/api/jugadas/{jugada_id}/narracion")
+def get_narracion(jugada_id: str):
+    """Narración en tres partes. Si Bedrock no está disponible, responde disponible=False y la app sigue igual."""
+    if jugada_id in _NARRACIONES:
+        return {"disponible": True, **_NARRACIONES[jugada_id]}
+    fila = jugadas_df[jugadas_df["jugada_id"] == jugada_id]
+    if fila.empty:
+        raise HTTPException(status_code=404, detail="Jugada no encontrada")
+    datos = _datos_narracion(jugada_id, fila.iloc[0])
+    prompt = (
+        "Eres comentarista de una transmisión de futbol americano en español de México, "
+        "para un público que no conoce el deporte. Usa SOLO los datos de abajo. "
+        "No inventes nombres, cifras, jugadas ni hechos que no aparezcan; si un dato dice 'sin dato', no lo menciones. "
+        "Escribe los equipos con su abreviatura tal como viene (por ejemplo CIN), sin nombre completo, ciudad ni estadio "
+        "(di 'HOU es local', no 'estamos en Houston').\n"
+        "Responde ÚNICAMENTE con un objeto JSON válido, sin texto antes ni después, con tres claves:\n"
+        '- "contexto": 1 o 2 oraciones con los equipos, quién es local, el marcador, el cuarto, el reloj, '
+        "el down y las yardas por avanzar.\n"
+        '- "jugada": 2 oraciones: a quién lanzó el QB, con qué separación y qué porcentaje de pases así se completan, '
+        "cuánto tardó en lanzar, cuánta presión tenía y el resultado.\n"
+        '- "alternativa": 1 o 2 oraciones con la mejor opción (su separación, su porcentaje y si pasaba el primer down). '
+        "Si el QB ya eligió la mejor opción, dilo así.\n"
+        'Formato: {"contexto": "...", "jugada": "...", "alternativa": "..."}\n\n'
+        "DATOS\n" + datos
+    )
+    try:
+        import boto3
+        cliente = boto3.client("bedrock-runtime", region_name=os.environ.get("AWS_REGION", "us-east-1"))
+        r = cliente.converse(
+            modelId=os.environ.get("BEDROCK_MODEL_ID", "us.amazon.nova-pro-v1:0"),
+            messages=[{"role": "user", "content": [{"text": prompt}]}],
+            inferenceConfig={"maxTokens": 500, "temperature": 0.3},
+        )
+        texto = r["output"]["message"]["content"][0]["text"]
+        partes = _leer_narracion(texto)
+        _NARRACIONES[jugada_id] = partes
+        return {"disponible": True, **partes}
+    except Exception as e:  # sin llaves, sin red o modelo no disponible
+        return {"disponible": False, "contexto": None, "jugada": None, "alternativa": None, "motivo": type(e).__name__}
+
+
+# ── Frontend (producción) ────────────────────────────────────────────────────
 DIST = ROOT / "dashboard" / "dist"
 if DIST.exists():
     app.mount("/", StaticFiles(directory=str(DIST), html=True), name="static")
