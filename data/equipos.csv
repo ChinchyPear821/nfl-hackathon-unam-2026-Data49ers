@@ -1,0 +1,33 @@
+equipo,nombre,ciudad,color_primario,color_secundario
+ARI,Cardinals,Arizona,#97233F,#FFB612
+ATL,Falcons,Atlanta,#A71930,#000000
+BAL,Ravens,Baltimore,#241773,#9E7C0C
+BUF,Bills,Buffalo,#00338D,#C60C30
+CAR,Panthers,Carolina,#0085CA,#101820
+CHI,Bears,Chicago,#0B162A,#C83803
+CIN,Bengals,Cincinnati,#FB4F14,#000000
+CLE,Browns,Cleveland,#311D00,#FF3C00
+DAL,Cowboys,Dallas,#003594,#869397
+DEN,Broncos,Denver,#FB4F14,#002244
+DET,Lions,Detroit,#0076B6,#B0B7BC
+GB,Packers,Green Bay,#203731,#FFB612
+HOU,Texans,Houston,#03202F,#A71930
+IND,Colts,Indianapolis,#002C5F,#A2AAAD
+JAX,Jaguars,Jacksonville,#006778,#D7A22A
+KC,Chiefs,Kansas City,#E31837,#FFB81C
+LA,Rams,Los Angeles,#003594,#FFA300
+LAC,Chargers,Los Angeles,#0080C6,#FFC20E
+LV,Raiders,Las Vegas,#000000,#A5ACAF
+MIA,Dolphins,Miami,#008E97,#FC4C02
+MIN,Vikings,Minnesota,#4F2683,#FFC62F
+NE,Patriots,New England,#002244,#C60C30
+NO,Saints,New Orleans,#D3BC8D,#101820
+NYG,Giants,New York,#0B2265,#A71930
+NYJ,Jets,New York,#125740,#FFFFFF
+PHI,Eagles,Philadelphia,#004C54,#A5ACAF
+PIT,Steelers,Pittsburgh,#FFB612,#101820
+SEA,Seahawks,Seattle,#002244,#69BE28
+SF,49ers,San Francisco,#AA0000,#B3995D
+TB,Buccaneers,Tampa Bay,#D50A0A,#34302B
+TEN,Titans,Tennessee,#0C2340,#4B92DB
+WAS,Commanders,Washington,#5A1414,#FFB612

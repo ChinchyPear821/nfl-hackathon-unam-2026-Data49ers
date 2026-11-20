@@ -1,0 +1,6 @@
+cluster,cluster_nombre,jugadores,vel_max_prom,acel_p90,profundidad,desp_lateral,sinuosidad,ventaja_prom
+1,Amenaza profunda,66,6.96,4.67,10.56,4.54,1.05,0.41
+2,Receptor de ruta intermedia,97,6.43,4.48,8.8,4.21,1.05,0.73
+3,Ala cerrada receptora,52,5.87,4.17,6.6,4.88,1.09,2.13
+4,Bloqueador que sale a recibir,21,5.5,4.02,4.91,5.54,1.15,3.9
+5,Corredor receptor (backfield),54,5.56,4.11,3.45,7.05,1.08,4.39
